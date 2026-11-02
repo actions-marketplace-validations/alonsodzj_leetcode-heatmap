@@ -1,0 +1,54 @@
+name: LeetCode Heatmap
+description: Genera un heatmap SVG de tu actividad en LeetCode a partir de un archivo de configuración.
+author: alonsodzj
+branding:
+  icon: grid
+  color: green
+
+inputs:
+  config:
+    description: Ruta al archivo de configuración TOML, relativa a la raíz del repositorio.
+    default: heatmap.toml
+  outdir:
+    description: Carpeta donde se escriben los SVG y la página.
+    default: "."
+  commit:
+    description: Hacer commit y push de los archivos generados.
+    default: "true"
+  commit_message:
+    description: Mensaje del commit.
+    default: "heatmap: actualizar"
+
+outputs:
+  files:
+    description: Archivos generados, separados por espacios.
+    value: ${{ steps.generate.outputs.files }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - id: generate
+      shell: bash
+      run: |
+        files=$(python "$GITHUB_ACTION_PATH/generate.py" -c "${{ inputs.config }}" --outdir "${{ inputs.outdir }}" | tr '\n' ' ')
+        echo "files=$files" >> "$GITHUB_OUTPUT"
+        echo "Generado: $files"
+
+    - if: inputs.commit == 'true'
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add -- ${{ steps.generate.outputs.files }}
+        git diff --cached --quiet && exit 0
+        git commit -m "${{ inputs.commit_message }}"
+        branch="${GITHUB_REF_NAME}"
+        for i in 1 2 3; do
+          git pull --rebase -X theirs origin "$branch" && git push origin "HEAD:$branch" && exit 0
+          sleep 5
+        done
+        exit 1
