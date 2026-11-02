@@ -1,0 +1,221 @@
+# Configuración base. Cada bloque [[output]] al final genera un archivo y
+# solo necesita las opciones que cambian respecto a esta base.
+#
+# Los textos (subtítulo, meses, días, leyenda, pie, tooltip) salen del idioma
+# elegido en `lang`. Si escribes cualquiera de ellos aquí, tu texto tiene
+# prioridad sobre el del idioma.
+#
+# Variables para title, subtitle, footer y tooltip:
+#   {user} {streak} {max_streak} {active_days} {total} {best_day}
+#   {today_count} {updated} {weeks}
+#   solo en tooltip: {count} {date}
+# El texto entre **asteriscos** usa el color de acento.
+
+user = "alonsodzj"
+lang = "es"                  # es | en | fr | de | it | pt | ca | ja  (o uno propio, ver al final)
+file = "heatmap.svg"
+page = ""                    # si tiene nombre (p. ej. "index.html") genera también una página interactiva
+
+[layout]
+weeks       = 53
+week_start  = "monday"       # monday | sunday
+orientation = "horizontal"   # horizontal | vertical
+padding     = 16
+cell_size   = 11
+cell_gap    = 3
+section_gap = 10
+scale       = 1.0
+
+[cell]
+shape           = "rounded"  # square | rounded | squircle | circle | dot | diamond | hexagon
+radius          = 2          # solo rounded
+dot_ratio       = 0.55       # solo dot
+border_width    = 0
+hide_empty      = false
+highlight_today = false
+today_width     = 1.5
+
+[colors]
+background        = "transparent"
+card_border       = "none"
+card_border_width = 1
+card_radius       = 8
+empty             = "#161b22"
+levels            = ["#0e4429", "#006d32", "#26a641", "#39d353"]  # tantos niveles como colores
+cell_border       = "#00000022"
+today             = "#ffffff"
+title             = "#e6edf3"
+text              = "#8b949e"
+accent            = "#39d353"
+page_background   = "#0d1117"
+
+# Se aplica cuando quien mira tiene el tema claro. Bórralo para usar siempre los mismos colores.
+[colors.light]
+empty  = "#ebedf0"
+levels = ["#9be9a8", "#40c463", "#30a14e", "#216e39"]
+title  = "#1f2328"
+text   = "#57606a"
+accent = "#1a7f37"
+today  = "#1f2328"
+
+[thresholds]
+mode   = "fixed"             # fixed | quantile
+values = [1, 3, 6, 10]       # envíos mínimos para cada nivel (modo fixed)
+
+[font]
+family          = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+google          = ""         # Google Font, se incrusta en el SVG
+google_weights  = [400, 600, 700]
+file            = ""         # o un archivo propio: "fonts/MiFuente.woff2"
+title_google    = ""
+title_family    = ""
+title_size      = 14
+title_weight    = 600
+subtitle_size   = 11
+label_size      = 9
+letter_spacing  = 0
+uppercase_title = false
+
+[title]
+show  = true
+text  = "LeetCode · {user}"
+align = "left"               # left | center | right
+
+[subtitle]
+show  = true
+align = "left"
+# text = "**{streak}** días de racha · máx. {max_streak}"
+
+[months]
+show = true
+# names = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+[weekdays]
+show = true
+# labels = ["L", "", "X", "", "V", "", ""]   # de lunes a domingo, "" = sin etiqueta
+
+[legend]
+show  = true
+align = "right"
+# less = "Menos"
+# more = "Más"
+
+[footer]
+show  = false
+align = "right"
+# text = "Actualizado {updated}"
+
+# Tooltip nativo del navegador en el .svg estático. La página interactiva
+# nunca muestra texto al pasar el ratón.
+[tooltip]
+show = false
+# text        = "{count} envíos · {date}"
+# date_format = "%d/%m/%Y"
+
+# Animaciones CSS. Funcionan también dentro del README.
+[animation]
+type         = "none"        # none | fade | pop | rise | drop | spin (entrada) · wave | sparkle (bucle)
+order        = "column"      # column | row | diagonal | random | level | center
+reverse      = false
+duration     = 0.45
+stagger      = 0.012         # segundos entre celdas consecutivas
+easing       = "cubic-bezier(.2,.8,.2,1.2)"
+loop         = false         # repetir la entrada
+loop_pause   = 4
+empty_cells  = true
+pulse_today  = false
+pulse_streak = false         # las celdas de la racha actual laten
+pulse_speed  = 1.6
+animate_text = false
+respect_reduced_motion = true
+
+# Efectos con el ratón. Necesitan JavaScript: funcionan en la página generada
+# con `page`, al abrir el SVG directamente o al incrustarlo en una web, pero
+# no dentro de un README (GitHub lo muestra como imagen estática).
+# Al pasar el ratón no se muestra información, solo la animación elegida.
+[interaction]
+enabled       = false        # añade los efectos también al .svg (la página siempre los lleva)
+hover         = "dim"        # none | dim | outline | glow | grow  (solo CSS)
+effect        = "gravity"    # none | gravity | repel | magnify
+radius        = 60           # alcance del puntero, en unidades del SVG
+strength      = 1.0          # 0–1: cuánto del hueco libre se usa
+shrink        = 0.2          # gravity/repel: las celdas encogen para hacer sitio
+stiffness     = 0.16         # muelle: más alto = más rápido
+damping       = 0.74         # muelle: más bajo = más rebote
+spotlight     = false        # atenúa las celdas lejos del puntero
+spotlight_dim = 0.3
+crosshair     = false        # resalta la semana y el día de la celda bajo el puntero
+same_level    = false        # resalta las celdas con el mismo nivel
+ripple        = true         # onda al hacer clic
+ripple_speed  = 320
+ripple_scale  = 0.35
+
+
+# Salidas
+[[output]]
+file = "heatmap.svg"
+page = "index.html"
+
+[[output]]
+file = "heatmap-lime.svg"
+[output.colors]
+background  = "#0b0d0a"
+card_border = "#2a3020"
+empty       = "#1a1d17"
+levels      = ["#3a4d12", "#5d7d14", "#8fbf1a", "#c6f135"]
+title       = "#f2f5ec"
+text        = "#8a9180"
+accent      = "#c6f135"
+today       = "#c6f135"
+light       = {}
+[output.font]
+google          = "JetBrains Mono"
+google_weights  = [400, 700]
+title_google    = "Michroma"
+title_weight    = 400
+title_size      = 13
+uppercase_title = true
+letter_spacing  = 0.3
+[output.cell]
+shape           = "square"
+highlight_today = true
+[output.legend]
+less = ""
+more = ""
+[output.animation]
+type         = "pop"
+order        = "diagonal"
+pulse_streak = true
+animate_text = true
+
+[[output]]
+file = "heatmap-minimal.svg"
+[output.title]
+show = false
+[output.subtitle]
+show = false
+[output.months]
+show = false
+[output.weekdays]
+show = false
+[output.legend]
+show = false
+[output.cell]
+shape     = "dot"
+dot_ratio = 0.7
+[output.layout]
+padding = 4
+
+
+# Idioma propio: copia este bloque, cambia el código y usa lang = "<código>".
+# Las claves que no pongas se toman del español.
+# [locales.eu]
+# subtitle    = "**{streak}** egun jarraian · gehienez {max_streak}"
+# months      = ["Urt", "Ots", "Mar", "Api", "Mai", "Eka", "Uzt", "Abu", "Ira", "Urr", "Aza", "Abe"]
+# weekdays    = ["Al", "", "Az", "", "Or", "", ""]
+# less        = "Gutxiago"
+# more        = "Gehiago"
+# footer      = "Eguneratua {updated}"
+# tooltip     = "{count} bidalketa · {date}"
+# date_format = "%Y/%m/%d"
+# label       = "{user}-ren LeetCode jarduera"

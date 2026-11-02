@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>LeetCode Heatmap Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: banco de trabajo de dos columnas; controles a la izquierda, mesa de previsualización y exportación a la derecha. */
+:root{
+  --bg:#f3f4f6; --panel:#ffffff; --sunken:#e9ebef; --line:#d6dae1; --fg:#161a21; --muted:#5d6573;
+  --accent:#2b54d8; --accent-ink:#ffffff; --accent-soft:#e3e9fb;
+  --ok:#1f7a45;
+  --font-ui:"Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1217; --panel:#161a21; --sunken:#1d222b; --line:#2a313c; --fg:#e7eaf0; --muted:#8d96a5;
+  --accent:#7f9cff; --accent-ink:#0d1220; --accent-soft:#1d2645; --ok:#4fbf7d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1217; --panel:#161a21; --sunken:#1d222b; --line:#2a313c; --fg:#e7eaf0; --muted:#8d96a5;
+  --accent:#7f9cff; --accent-ink:#0d1220; --accent-soft:#1d2645; --ok:#4fbf7d; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--font-ui);margin:0}
+.app{display:flex;flex-direction:column;min-height:100%;padding-block:0 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding-block:18px 14px;border-bottom:1px solid var(--line)}
+.brand{display:flex;flex-direction:column;gap:2px;margin-right:auto;min-width:0}
+.brand h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em}
+.brand p{margin:0;color:var(--muted);font-size:13px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+button,.btn{font:inherit;font-size:13px;font-weight:500;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:7px 12px;border-radius:var(--r);cursor:pointer;line-height:1.2}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.seg button{border:0;border-radius:0;background:var(--panel)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+.presets{display:flex;flex-wrap:wrap;gap:8px;padding-block:14px;align-items:center}
+.presets .lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px 6px 7px;border-radius:999px}
+.chip i{display:inline-flex;gap:2px}
+.chip i b{width:7px;height:7px;border-radius:2px;display:block}
+
+.work{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:20px;align-items:start;flex:1}
+.controls{display:flex;flex-direction:column;gap:8px;min-width:0}
+.right{display:flex;flex-direction:column;gap:16px;position:sticky;top:12px;min-width:0}
+
+details.sec{background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+details.sec>summary{list-style:none;cursor:pointer;padding:11px 14px;font-weight:600;display:flex;align-items:center;gap:10px;user-select:none}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::after{content:"";margin-left:auto;width:7px;height:7px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+details.sec[open]>summary::after{transform:rotate(-135deg) translateY(-2px)}
+details.sec>summary small{font-weight:400;color:var(--muted);font-size:12px}
+.fields{display:grid;gap:10px;padding:2px 14px 14px}
+.f{display:grid;grid-template-columns:118px minmax(0,1fr);gap:10px;align-items:center}
+.f>label{font-size:12.5px;color:var(--muted)}
+.f .hint{grid-column:2;font-size:11.5px;color:var(--muted);margin-top:-6px}
+.f.sub{padding-left:10px;border-left:2px solid var(--sunken)}
+input[type=text],input[type=number],select{font:inherit;font-size:13px;width:100%;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg)}
+input.mono{font-family:var(--font-mono);font-size:12px}
+.range{display:flex;gap:8px;align-items:center;min-width:0}
+.range input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.range output{font:12px var(--font-mono);color:var(--fg);min-width:38px;text-align:right;font-variant-numeric:tabular-nums}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.chk input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.color{display:flex;gap:6px;align-items:center;min-width:0}
+.color input[type=color]{width:30px;height:28px;padding:0;border:1px solid var(--line);border-radius:5px;background:none;flex:none;cursor:pointer}
+.color input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+.color input[type=color]::-webkit-color-swatch{border:0;border-radius:3px}
+.levels{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.levels .lv{position:relative}
+.levels .lv input[type=color]{width:30px;height:28px;padding:0;border:1px solid var(--line);border-radius:5px;background:none;cursor:pointer}
+.levels .lv button{position:absolute;top:-7px;right:-7px;width:16px;height:16px;padding:0;border-radius:50%;font-size:10px;line-height:14px;display:none}
+.levels .lv:hover button,.levels .lv:focus-within button{display:block}
+.levels .add{width:30px;height:28px;padding:0;font-size:16px;line-height:1}
+
+.stage-wrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.stage-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line)}
+.stage-head .t{font-size:12px;color:var(--muted)}
+.stage{padding:28px 20px;display:grid;place-items:center;min-height:240px;overflow-x:auto;transition:background .2s}
+.stage.dark{background:#0d1117}
+.stage.light{background:#ffffff}
+.stage-note{font-size:12px;color:var(--muted);padding:9px 12px;border-top:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap}
+.stage-note b{color:var(--fg);font-weight:600}
+
+.export{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;min-width:0}
+.export-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.export-head h2{margin:0;font-size:14px;font-weight:600;margin-right:auto}
+.export-head h2 code{font:500 12.5px var(--font-mono);background:var(--sunken);padding:2px 6px;border-radius:4px}
+pre.toml{margin:0;padding:12px 14px;max-height:340px;overflow:auto;font:12px/1.55 var(--font-mono);background:var(--sunken);color:var(--fg);white-space:pre;tab-size:2}
+pre.toml .k{color:var(--accent)}
+pre.toml .h{font-weight:500}
+pre.toml .c{color:var(--muted)}
+.copied{color:var(--ok);font-size:12px}
+
+@media (max-width:900px){
+  .work{grid-template-columns:minmax(0,1fr)}
+  .right{position:static;order:-1}
+  .f{grid-template-columns:100px minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>LeetCode Heatmap Studio</h1>
+      <p>Ajusta el estilo y copia el <code>config.toml</code> para tu repositorio.</p>
+    </div>
+    <div class="toolbar">
+      <button id="btn-replay" type="button">Repetir animación</button>
+      <button id="btn-data" type="button">Otros datos</button>
+      <button id="btn-reset" type="button">Restablecer</button>
+    </div>
+  </header>
+
+  <div class="presets" id="presets"><span class="lbl">Punto de partida</span></div>
+
+  <div class="work">
+    <div class="controls" id="controls"></div>
+
+    <div class="right">
+      <section class="stage-wrap" aria-label="Vista previa">
+        <div class="stage-head">
+          <span class="t">Vista previa con datos de ejemplo</span>
+          <div class="seg" role="group" aria-label="Tema de GitHub">
+            <button type="button" id="mode-dark" aria-pressed="true">GitHub oscuro</button>
+            <button type="button" id="mode-light" aria-pressed="false">GitHub claro</button>
+          </div>
+        </div>
+        <div class="stage dark" id="stage"></div>
+        <div class="stage-note"><b>Pasa el ratón</b> por las celdas para probar los efectos de interacción. En el README solo se verán las animaciones automáticas.</div>
+      </section>
+
+      <section class="export" aria-label="Exportar configuración">
+        <div class="export-head">
+          <h2>Tu <code>config.toml</code></h2>
+          <span class="copied" id="copied" hidden>Copiado</span>
+          <div class="seg" role="group" aria-label="Contenido del archivo">
+            <button type="button" id="ex-diff" aria-pressed="true">Solo cambios</button>
+            <button type="button" id="ex-full" aria-pressed="false">Completo</button>
+          </div>
+          <button class="primary" type="button" id="btn-copy">Copiar</button>
+        </div>
+        <pre class="toml" id="toml" tabindex="0"></pre>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+/* ---------- utilidades ---------- */
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+function merge(base, over) {
+  const out = clone(base);
+  for (const [k, v] of Object.entries(over || {})) {
+    out[k] = isObj(v) && isObj(out[k]) ? merge(out[k], v) : clone(v);
+  }
+  return out;
+}
+const get = (o, p) => p.split(".").reduce((a, k) => (a == null ? a : a[k]), o);
+function set(o, p, v) { const ks = p.split("."); let a = o; ks.slice(0, -1).forEach((k) => { if (!isObj(a[k])) a[k] = {}; a = a[k]; }); a[ks.at(-1)] = v; }
+const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const f2 = (n) => (+n).toFixed(2);
+
+/* ---------- valores por defecto (iguales que heatmap/config.py) ---------- */
+const DEFAULTS = {
+  user: "alonsodzj", lang: "es", label: "", file: "heatmap.svg", page: "",
+  layout: { weeks: 53, week_start: "monday", orientation: "horizontal", padding: 16, cell_size: 11, cell_gap: 3, section_gap: 10, scale: 1.0 },
+  cell: { shape: "rounded", radius: 2, dot_ratio: 0.55, border_width: 0, hide_empty: false, highlight_today: false, today_width: 1.5 },
+  colors: { background: "transparent", card_border: "none", card_border_width: 1, card_radius: 8, empty: "#161b22",
+    levels: ["#0e4429", "#006d32", "#26a641", "#39d353"], cell_border: "#00000022", today: "#ffffff",
+    title: "#e6edf3", text: "#8b949e", accent: "#39d353", page_background: "#0d1117", light: {} },
+  thresholds: { mode: "fixed", values: [1, 3, 6, 10] },
+  font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif", google: "", google_weights: [400, 600, 700],
+    file: "", title_family: "", title_google: "", title_size: 14, title_weight: 600, subtitle_size: 11, label_size: 9, letter_spacing: 0, uppercase_title: false },
+  title: { show: true, text: "LeetCode · {user}", align: "left" },
+  subtitle: { show: true, text: "", align: "left" },
+  months: { show: true, names: [] },
+  weekdays: { show: true, labels: [] },
+  legend: { show: true, less: "", more: "", align: "right" },
+  footer: { show: false, text: "", align: "right" },
+  tooltip: { show: false, text: "", date_format: "" },
+  animation: { type: "none", order: "column", reverse: false, duration: 0.45, stagger: 0.012, easing: "cubic-bezier(.2,.8,.2,1.2)",
+    loop: false, loop_pause: 4, empty_cells: true, pulse_today: false, pulse_streak: false, pulse_speed: 1.6, animate_text: false, respect_reduced_motion: true },
+  interaction: { enabled: false, hover: "dim", effect: "gravity", radius: 60, strength: 1.0, shrink: 0.2, stiffness: 0.16, damping: 0.74,
+    spotlight: false, spotlight_dim: 0.3, crosshair: false, same_level: false, ripple: true, ripple_speed: 320, ripple_scale: 0.35 },
+};
+const LIGHT_DEFAULT = { empty: "#ebedf0", levels: ["#9be9a8", "#40c463", "#30a14e", "#216e39"], title: "#1f2328", text: "#57606a", accent: "#1a7f37", today: "#1f2328" };
+
+/* ---------- idiomas (iguales que heatmap/locales.py) ---------- */
+const LOCALES = {
+  es: { subtitle: "**{streak}** días de racha · máx. {max_streak} · {active_days} días activos", months: ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"], weekdays: ["L","","X","","V","",""], less: "Menos", more: "Más", footer: "Actualizado {updated}", tooltip: "{count} envíos · {date}", date_format: "%d/%m/%Y", label: "Actividad en LeetCode de {user}" },
+  en: { subtitle: "**{streak}** day streak · best {max_streak} · {active_days} active days", months: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], weekdays: ["Mon","","Wed","","Fri","",""], less: "Less", more: "More", footer: "Updated {updated}", tooltip: "{count} submissions · {date}", date_format: "%Y-%m-%d", label: "LeetCode activity of {user}" },
+  fr: { subtitle: "Série de **{streak}** jours · record {max_streak} · {active_days} jours actifs", months: ["Janv","Févr","Mars","Avr","Mai","Juin","Juil","Août","Sept","Oct","Nov","Déc"], weekdays: ["Lun","","Mer","","Ven","",""], less: "Moins", more: "Plus", footer: "Mis à jour le {updated}", tooltip: "{count} soumissions · {date}", date_format: "%d/%m/%Y", label: "Activité LeetCode de {user}" },
+  de: { subtitle: "**{streak}** Tage in Folge · Rekord {max_streak} · {active_days} aktive Tage", months: ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"], weekdays: ["Mo","","Mi","","Fr","",""], less: "Weniger", more: "Mehr", footer: "Aktualisiert am {updated}", tooltip: "{count} Einreichungen · {date}", date_format: "%d.%m.%Y", label: "LeetCode-Aktivität von {user}" },
+  it: { subtitle: "**{streak}** giorni di fila · record {max_streak} · {active_days} giorni attivi", months: ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"], weekdays: ["Lun","","Mer","","Ven","",""], less: "Meno", more: "Più", footer: "Aggiornato il {updated}", tooltip: "{count} invii · {date}", date_format: "%d/%m/%Y", label: "Attività LeetCode di {user}" },
+  pt: { subtitle: "**{streak}** dias seguidos · recorde {max_streak} · {active_days} dias ativos", months: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"], weekdays: ["Seg","","Qua","","Sex","",""], less: "Menos", more: "Mais", footer: "Atualizado em {updated}", tooltip: "{count} envios · {date}", date_format: "%d/%m/%Y", label: "Atividade no LeetCode de {user}" },
+  ca: { subtitle: "**{streak}** dies seguits · rècord {max_streak} · {active_days} dies actius", months: ["Gen","Feb","Març","Abr","Maig","Juny","Jul","Ag","Set","Oct","Nov","Des"], weekdays: ["Dl","","Dc","","Dv","",""], less: "Menys", more: "Més", footer: "Actualitzat el {updated}", tooltip: "{count} enviaments · {date}", date_format: "%d/%m/%Y", label: "Activitat a LeetCode de {user}" },
+  ja: { subtitle: "連続 **{streak}** 日 · 最長 {max_streak} 日 · 活動日数 {active_days}", months: ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"], weekdays: ["月","","水","","金","",""], less: "少", more: "多", footer: "{updated} 更新", tooltip: "{date} · {count} 件", date_format: "%Y/%m/%d", label: "{user} の LeetCode アクティビティ" },
+};
+const LANG_NAMES = { es: "Español", en: "English", fr: "Français", de: "Deutsch", it: "Italiano", pt: "Português", ca: "Català", ja: "日本語" };
+
+/* Configuración efectiva: los textos vacíos se rellenan con los del idioma. */
+function resolve(state) {
+  const t = LOCALES[state.lang] || LOCALES.es;
+  const c = clone(state);
+  const fill = (p, v) => { const cur = get(c, p); if (cur === "" || (Array.isArray(cur) && !cur.length)) set(c, p, clone(v)); };
+  fill("subtitle.text", t.subtitle); fill("months.names", t.months); fill("weekdays.labels", t.weekdays);
+  fill("legend.less", t.less); fill("legend.more", t.more); fill("footer.text", t.footer);
+  fill("tooltip.text", t.tooltip); fill("tooltip.date_format", t.date_format); fill("label", t.label);
+  return c;
+}
+
+/* ---------- datos de ejemplo ---------- */
+function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const weekday = (d) => (d.getDay() + 6) % 7;
+const now = new Date(); const TODAY = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+function sample(seed) {
+  const r = rng(seed); const m = new Map(); const streak = 8 + Math.floor(r() * 30);
+  const pick = [1, 1, 2, 2, 3, 4, 6, 9, 14];
+  for (let i = 0; i < 420; i++) if (i < streak || r() < 0.5) m.set(dayKey(addDays(TODAY, -i)), pick[Math.floor(r() * pick.length)]);
+  return m;
+}
+function strftime(d, f) {
+  return f.replace(/%d/g, String(d.getDate()).padStart(2, "0")).replace(/%m/g, String(d.getMonth() + 1).padStart(2, "0"))
+    .replace(/%Y/g, d.getFullYear()).replace(/%y/g, String(d.getFullYear()).slice(2));
+}
+function currentStreak(counts) {
+  let d = counts.get(dayKey(TODAY)) ? TODAY : addDays(TODAY, -1); const out = [];
+  while (counts.get(dayKey(d))) { out.push(dayKey(d)); d = addDays(d, -1); }
+  return out;
+}
+function longestStreak(counts) {
+  const days = [...counts.keys()].filter((k) => counts.get(k)).sort(); let best = 0, run = 0, prev = null;
+  for (const k of days) { const d = new Date(k + "T00:00"); run = prev && Math.round((d - prev) / 864e5) === 1 ? run + 1 : 1; best = Math.max(best, run); prev = d; }
+  return best;
+}
+function thresholds(mode, values, window, n) {
+  if (mode === "quantile") {
+    const a = window.filter((x) => x > 0).sort((x, y) => x - y);
+    if (!a.length) return Array(n).fill(1);
+    return Array.from({ length: n }, (_, i) => a[Math.min(a.length - 1, Math.floor(a.length * i / n))]);
+  }
+  const out = values.slice(0, n); while (out.length < n) out.push((out.at(-1) || 0) + 1); return out;
+}
+const level = (c, lim) => lim.filter((v) => c >= v).length;
+
+/* ---------- formas ---------- */
+function shape(kind, x, y, s, attrs, o) {
+  const cx = x + s / 2, cy = y + s / 2;
+  if (kind === "square" || kind === "rounded" || kind === "squircle") {
+    const rx = kind === "square" ? 0 : kind === "rounded" ? Math.min(o.radius, s / 2) : s * 0.32;
+    return `<rect ${attrs} x="${f2(x)}" y="${f2(y)}" width="${s}" height="${s}"${rx ? ` rx="${f2(rx)}"` : ""}/>`;
+  }
+  if (kind === "circle" || kind === "dot") return `<circle ${attrs} cx="${f2(cx)}" cy="${f2(cy)}" r="${f2(s / 2 * (kind === "dot" ? o.dot_ratio : 1))}"/>`;
+  if (kind === "diamond") { const h = s / 2; return `<polygon ${attrs} points="${f2(cx)},${f2(cy - h)} ${f2(cx + h)},${f2(cy)} ${f2(cx)},${f2(cy + h)} ${f2(cx - h)},${f2(cy)}"/>`; }
+  const r = s / 2; const pts = Array.from({ length: 6 }, (_, i) => { const a = (60 * i - 30) * Math.PI / 180; return `${f2(cx + r * Math.cos(a))},${f2(cy + r * Math.sin(a))}`; }).join(" ");
+  return `<polygon ${attrs} points="${pts}"/>`;
+}
+
+/* ---------- animaciones (iguales que heatmap/motion.py) ---------- */
+const INTRO = {
+  fade: "from{opacity:0}to{opacity:1}",
+  pop: "0%{opacity:0;transform:scale(0)}70%{opacity:1;transform:scale(1.18)}100%{opacity:1;transform:scale(1)}",
+  rise: "from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}",
+  drop: "from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}",
+  spin: "from{opacity:0;transform:rotate(-90deg) scale(.3)}to{opacity:1;transform:none}",
+};
+const LOOP = { wave: "0%,100%{opacity:1;transform:none}50%{opacity:.35;transform:scale(.8)}", sparkle: "0%,88%,100%{opacity:1;transform:none}94%{opacity:.25;transform:scale(.6)}" };
+const ORIGIN = "transform-box:fill-box;transform-origin:center;";
+function orderKey(o, c, r, l, cols, rows, rnd) {
+  if (o === "row") return (r * cols + c) / rows;
+  if (o === "diagonal") return c + r;
+  if (o === "random") return rnd() * cols;
+  if (o === "level") return l * cols / 4 + c * 0.25;
+  if (o === "center") return Math.hypot(c - cols / 2, (r - rows / 2) * 1.5);
+  return c + r / rows;
+}
+function delays(cells, A, cols, rows) {
+  if (A.type === "none") return cells.map(() => null);
+  const rnd = rng(1);
+  if (A.type === "sparkle") return cells.map((c) => (c.level && !c.pulsing ? rnd() * 6 : null));
+  const keys = cells.map((c) => orderKey(A.order, c.col, c.row, c.level, cols, rows, rnd));
+  const top = Math.max(0, ...keys); const per = A.stagger * rows;
+  return cells.map((c, i) => (c.pulsing || (c.level === 0 && !A.empty_cells)) ? null : (A.reverse ? top - keys[i] : keys[i]) * per);
+}
+function motionCss(A) {
+  const r = []; const k = A.type;
+  if (INTRO[k]) {
+    if (A.loop) {
+      const total = A.duration + A.loop_pause; const p = A.duration / total * 100;
+      let fr = k === "pop" ? `0%{opacity:0;transform:scale(0)}${(p * .7).toFixed(1)}%{opacity:1;transform:scale(1.18)}${p.toFixed(1)}%{opacity:1;transform:scale(1)}`
+        : INTRO[k].replace("from", "0%").replace("to{", `${p.toFixed(1)}%{`);
+      fr += `${(100 - p * .5).toFixed(1)}%{opacity:1;transform:none}100%{opacity:0}`;
+      r.push(`@keyframes hm{${fr}}`, `.an{${ORIGIN}animation:hm ${total.toFixed(2)}s ${A.easing} infinite both}`);
+    } else r.push(`@keyframes hm{${INTRO[k]}}`, `.an{${ORIGIN}animation:hm ${A.duration}s ${A.easing} both}`);
+  } else if (k === "wave") r.push(`@keyframes hm{${LOOP.wave}}`, `.an{${ORIGIN}animation:hm ${Math.max(A.duration * 4, 1.2).toFixed(2)}s ease-in-out infinite}`);
+  else if (k === "sparkle") r.push(`@keyframes hm{${LOOP.sparkle}}`, `.an{${ORIGIN}animation:hm 6s ease-in-out infinite}`);
+  if (A.pulse_today || A.pulse_streak) r.push("@keyframes pz{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.82)}}", `.pz{${ORIGIN}animation:pz ${A.pulse_speed}s ease-in-out infinite}`);
+  if (A.animate_text) r.push("@keyframes at{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}", ".at{animation:at .8s ease-out both}");
+  if (r.length && A.respect_reduced_motion) r.push("@media (prefers-reduced-motion:reduce){.an,.pz,.at{animation:none!important}}");
+  return r.join("");
+}
+
+/* ---------- render (equivalente a heatmap/render.py) ---------- */
+const WIDE = /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/;
+function textWidth(t, size) { t = String(t).replace(/\*\*/g, ""); let w = 0; for (const ch of t) w += WIDE.test(ch) ? size : size * 0.56; return w; }
+const fillT = (t, v) => String(t).replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+const rich = (t) => String(t).split("**").map((p, i) => (i % 2 ? `<tspan class="ac">${esc(p)}</tspan>` : esc(p))).join("");
+const HOVER = { none: "", dim: ".c:hover{opacity:.6}", outline: ".c:hover{stroke:var(--accent);stroke-width:1.5}", glow: ".c:hover{filter:drop-shadow(0 0 3px var(--accent))}", grow: ".c:hover{transform:scale(1.25)}" };
+
+function colorRules(c, n) {
+  const bg = c.background === "transparent" ? "none" : c.background;
+  return [`svg{--accent:${c.accent}}`, `.bg{fill:${bg};stroke:${c.card_border}}`, `.l0{fill:${c.empty}}`, `.ti{fill:${c.title}}`,
+    `.tx{fill:${c.text}}`, `.ac{fill:${c.accent}}`, `.today{stroke:${c.today}}`, `.cb{stroke:${c.cell_border}}`,
+    ...c.levels.slice(0, n).map((col, i) => `.l${i + 1}{fill:${col}}`)].join("");
+}
+
+function render(cfg, counts, mode, interactive) {
+  const L = cfg.layout, C = cfg.cell, F = cfg.font, A = cfg.animation, IX = cfg.interaction;
+  let K = cfg.colors;
+  if (mode === "light" && K.light && Object.keys(K.light).length) K = merge(K, K.light);
+  const size = +L.cell_size, gap = +L.cell_gap, pad = +L.padding, sgap = +L.section_gap, step = size + gap;
+  const weeks = +L.weeks, ws = L.week_start === "sunday" ? 6 : 0, vertical = L.orientation === "vertical";
+  const nLv = K.levels.length;
+
+  const first = addDays(TODAY, -(((weekday(TODAY) - ws) % 7 + 7) % 7) - 7 * (weeks - 1));
+  const span = Math.round((TODAY - first) / 864e5) + 1;
+  const window = Array.from({ length: span }, (_, i) => counts.get(dayKey(addDays(first, i))) || 0);
+  const streakDays = new Set(currentStreak(counts));
+  const st = { streak: streakDays.size, max_streak: longestStreak(counts), active_days: window.filter((x) => x).length,
+    total: window.reduce((a, b) => a + b, 0), best_day: Math.max(0, ...window), today_count: counts.get(dayKey(TODAY)) || 0 };
+  const lim = thresholds(cfg.thresholds.mode, cfg.thresholds.values, window, nLv);
+  const values = { user: cfg.user, weeks, updated: strftime(TODAY, cfg.tooltip.date_format), ...st };
+
+  let wd = cfg.weekdays.labels; wd = wd.length === 7 ? Array.from({ length: 7 }, (_, i) => wd[(ws + i) % 7]) : Array(7).fill("");
+  const lab = +F.label_size;
+  const showM = cfg.months.show, showD = cfg.weekdays.show && wd.some(Boolean);
+  const cols = vertical ? 7 : weeks, rows = vertical ? weeks : 7;
+  const gridW = cols * step - gap, gridH = rows * step - gap;
+  let ml, mt;
+  if (vertical) { ml = showM ? Math.max(...cfg.months.names.map((n) => textWidth(n, lab))) + 6 : 0; mt = showD ? lab + 5 : 0; }
+  else { ml = showD ? Math.max(...wd.map((n) => textWidth(n, lab))) + 6 : 0; mt = showM ? lab + 5 : 0; }
+
+  let title = fillT(cfg.title.text, values); if (F.uppercase_title) title = title.toUpperCase();
+  const subtitle = fillT(cfg.subtitle.text, values), footer = fillT(cfg.footer.text, values);
+  let contentW = ml + gridW;
+  if (cfg.legend.show) contentW = Math.max(contentW, textWidth(cfg.legend.less, lab) + textWidth(cfg.legend.more, lab) + (nLv + 1) * step + 12);
+  if (cfg.title.show) contentW = Math.max(contentW, textWidth(title, F.title_size));
+  if (cfg.subtitle.show) contentW = Math.max(contentW, textWidth(subtitle, F.subtitle_size));
+  const width = contentW + 2 * pad;
+  const anchor = (a) => (a === "center" ? [width / 2, "middle"] : a === "right" ? [width - pad, "end"] : [pad, "start"]);
+  const ta = A.animate_text ? " at" : "";
+  const head = [], tail = []; let y = pad;
+
+  if (cfg.title.show) { y += +F.title_size; const [x, a] = anchor(cfg.title.align); head.push(`<text class="ti tt${ta}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${a}">${rich(title)}</text>`); y += sgap * .6; }
+  if (cfg.subtitle.show) { y += +F.subtitle_size; const [x, a] = anchor(cfg.subtitle.align); head.push(`<text class="tx st${ta}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${a}">${rich(subtitle)}</text>`); y += sgap * .6; }
+  if (head.length) y += sgap * .6;
+  const x0 = pad + ml, y0 = y + mt;
+
+  const cells = [], monthStarts = [];
+  for (let w = 0; w < weeks; w++) for (let d = 0; d < 7; d++) {
+    const day = addDays(first, w * 7 + d); if (day > TODAY) continue;
+    if (d === 0 && (!monthStarts.length || monthStarts.at(-1)[1] !== day.getMonth())) monthStarts.push([w, day.getMonth()]);
+    const k = dayKey(day), n = counts.get(k) || 0, lv = level(n, lim);
+    if (lv === 0 && C.hide_empty) continue;
+    const c = vertical ? d : w, r = vertical ? w : d;
+    const pulsing = !!((A.pulse_today && k === dayKey(TODAY) && n) || (A.pulse_streak && streakDays.has(k)));
+    cells.push({ col: c, row: r, day, key: k, count: n, level: lv, x: x0 + c * step, y: y0 + r * step, pulsing });
+  }
+  const dl = delays(cells, A, cols, rows); const so = { radius: +C.radius, dot_ratio: +C.dot_ratio };
+  const cellSvg = cells.map((c, i) => {
+    const cls = ["c", `l${c.level}`]; if (+C.border_width) cls.push("cb");
+    if (C.highlight_today && c.key === dayKey(TODAY)) cls.push("today"); if (c.pulsing) cls.push("pz");
+    let at = ""; if (dl[i] != null) { cls.push("an"); at += ` style="animation-delay:${dl[i].toFixed(3)}s"`; }
+    if (interactive) at += ` data-c="${c.col}" data-r="${c.row}" data-l="${c.level}" data-x="${f2(c.x + size / 2)}" data-y="${f2(c.y + size / 2)}"`;
+    return shape(C.shape, c.x, c.y, size, `class="${cls.join(" ")}"${at}`, so);
+  });
+
+  const labels = [];
+  if (showM) { let last = -Infinity; for (const [w, m] of monthStarts) { const name = cfg.months.names[m] ?? "";
+    if (vertical) { const pos = y0 + w * step; if (pos - last < lab + 2 || pos + size > y0 + gridH + 1) continue; labels.push(`<text class="tx" x="${(x0 - 6).toFixed(1)}" y="${(pos + size * .8).toFixed(1)}" text-anchor="end">${esc(name)}</text>`); last = pos; }
+    else { const pos = x0 + w * step; if (pos - last < textWidth(name, lab) + 4 || pos + textWidth(name, lab) > x0 + gridW + 2) continue; labels.push(`<text class="tx" x="${pos.toFixed(1)}" y="${(y0 - 5).toFixed(1)}">${esc(name)}</text>`); last = pos; } } }
+  if (showD) wd.forEach((name, i) => { if (!name) return;
+    labels.push(vertical ? `<text class="tx" x="${(x0 + i * step + size / 2).toFixed(1)}" y="${(y0 - 5).toFixed(1)}" text-anchor="middle">${esc(name)}</text>`
+      : `<text class="tx" x="${(x0 - 6).toFixed(1)}" y="${(y0 + i * step + size * .8).toFixed(1)}" text-anchor="end">${esc(name)}</text>`); });
+
+  y = y0 + gridH;
+  if (cfg.legend.show) {
+    y += sgap; const less = cfg.legend.less, more = cfg.legend.more;
+    const wl = less ? textWidth(less, lab) + 6 : 0, wm = more ? textWidth(more, lab) + 6 : 0;
+    const total = wl + (nLv + 1) * step - gap + wm;
+    const lx = cfg.legend.align === "left" ? x0 : cfg.legend.align === "center" ? (width - total) / 2 : width - pad - total;
+    const ty = y + size * .82; let cx = lx + wl; const parts = [];
+    if (less) parts.push(`<text class="tx" x="${(cx - 6).toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="end">${esc(less)}</text>`);
+    for (let i = 0; i <= nLv; i++) { parts.push(shape(C.shape, cx, y, size, `class="l${i}${+C.border_width ? " cb" : ""}"`, so)); cx += step; }
+    if (more) parts.push(`<text class="tx" x="${(cx - gap + 6).toFixed(1)}" y="${ty.toFixed(1)}">${esc(more)}</text>`);
+    tail.push(ta ? `<g class="at">${parts.join("")}</g>` : parts.join("")); y += size;
+  }
+  if (cfg.footer.show) { y += sgap + lab; const [x, a] = anchor(cfg.footer.align); tail.push(`<text class="tx" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${a}">${rich(footer)}</text>`); }
+  const height = y + pad;
+
+  let family = F.family, titleFamily;
+  if (F.google) family = `'${F.google}', ${family}`;
+  titleFamily = F.title_google ? `'${F.title_google}', ${family}` : F.title_family ? `${F.title_family}, ${family}` : family;
+  const css = [`text{font-family:${family};font-size:${lab}px;letter-spacing:${F.letter_spacing}px}`,
+    `.tt{font-family:${titleFamily};font-size:${F.title_size}px;font-weight:${F.title_weight}}`, `.st{font-size:${F.subtitle_size}px}`, ".ac{font-weight:700}",
+    ".c{transform-box:fill-box;transform-origin:center;transition:opacity .15s,filter .15s}", colorRules(K, nLv), motionCss(A)];
+  if (+C.border_width) css.push(`.cb{stroke-width:${C.border_width}}`);
+  if (C.highlight_today) css.push(`.today{stroke-width:${C.today_width}}`);
+  if (!(IX.hover === "grow" && interactive && IX.effect !== "none")) css.push(HOVER[IX.hover] || "");
+  if (interactive) css.push(".live .an,.live .pz{animation:none}.live .c{transition:none}.fx .c:not(.on){opacity:.22!important}");
+
+  const sc = +L.scale;
+  const svg = [`<svg xmlns="http://www.w3.org/2000/svg" width="${(width * sc).toFixed(0)}" height="${(height * sc).toFixed(0)}" viewBox="0 0 ${width.toFixed(1)} ${height.toFixed(1)}" role="img" aria-label="${esc(fillT(cfg.label, values))}">`,
+    `<style>${css.join("")}</style>`,
+    `<rect class="bg" x="0.5" y="0.5" width="${(width - 1).toFixed(1)}" height="${(height - 1).toFixed(1)}" rx="${K.card_radius}" stroke-width="${K.card_border_width}"/>`,
+    ...head, labels.join(""), cellSvg.join(""), ...tail, "</svg>"].join("\n");
+  const settings = { size, step, gap, x0, y0, effect: IX.effect, radius: +IX.radius, strength: +IX.strength, shrink: +IX.shrink,
+    stiffness: +IX.stiffness, damping: +IX.damping, spotlight: IX.spotlight, spotlightDim: +IX.spotlight_dim, crosshair: IX.crosshair,
+    sameLevel: IX.same_level, ripple: IX.ripple, rippleSpeed: +IX.ripple_speed, rippleScale: +IX.ripple_scale, introAnimation: !!INTRO[A.type] };
+  return { svg, settings };
+}
+
+/* ---------- interacción (igual que heatmap/interact.js) ---------- */
+function attach(svg, CFG) {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const { size, step, gap } = CFG; const maxScale = step / size; const vb = svg.viewBox.baseVal;
+  const cells = Array.from(svg.querySelectorAll(".c"), (el) => ({ el, col: +el.dataset.c, row: +el.dataset.r, lvl: +el.dataset.l, x: +el.dataset.x, y: +el.dataset.y, ox: 0, oy: 0, k: 1, op: 1, vx: 0, vy: 0, vk: 0 }));
+  const byPos = new Map(cells.map((c) => [`${c.col},${c.row}`, c]));
+  let pointer = null, hovered = null, ripples = [], frameId = 0, introCleared = false;
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const toLocal = (e) => { const m = svg.getScreenCTM(); if (!m) return null; const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(m.inverse()); };
+  const cellAt = (p) => byPos.get(`${Math.floor((p.x - CFG.x0 + gap / 2) / step)},${Math.floor((p.y - CFG.y0 + gap / 2) / step)}`) || null;
+  function target(c, t) {
+    let tx = 0, ty = 0, tk = 1, op = 1;
+    if (pointer) {
+      const dx = pointer.x - c.x, dy = pointer.y - c.y, d = Math.hypot(dx, dy);
+      const f = d < CFG.radius ? (1 - d / CFG.radius) ** 2 : 0;
+      if (f > 0 && !reduce) {
+        if (CFG.effect === "magnify") tk = 1 + (maxScale - 1) * CFG.strength * f;
+        else if (CFG.effect === "gravity" || CFG.effect === "repel") {
+          tk = 1 - CFG.shrink * f; const room = (step - size * tk) / 2; const sign = CFG.effect === "gravity" ? 1 : -1;
+          const mag = room * CFG.strength * Math.min(1, f * 2) * Math.min(1, d / size);
+          tx = (sign * dx / (d || 1)) * mag; ty = (sign * dy / (d || 1)) * mag;
+        }
+      }
+      if (CFG.spotlight) op = CFG.spotlightDim + (1 - CFG.spotlightDim) * clamp(1 - d / (CFG.radius * 1.8), 0, 1);
+    }
+    if (!reduce) for (const r of ripples) { const age = (t - r.t0) / 1000; const d = Math.hypot(c.x - r.x, c.y - r.y);
+      tk += CFG.rippleScale * Math.exp(-(((d - age * CFG.rippleSpeed) / (step * 1.3)) ** 2)) * (1 - age / r.life); }
+    return { tx, ty, tk: clamp(tk, 0.2, maxScale), op };
+  }
+  function frame() {
+    frameId = 0; const t = performance.now();
+    ripples = ripples.filter((r) => (t - r.t0) / 1000 < r.life); let moving = ripples.length > 0;
+    for (const c of cells) {
+      const g = target(c, t);
+      c.vx = (c.vx + (g.tx - c.ox) * CFG.stiffness) * CFG.damping; c.vy = (c.vy + (g.ty - c.oy) * CFG.stiffness) * CFG.damping; c.vk = (c.vk + (g.tk - c.k) * CFG.stiffness) * CFG.damping;
+      c.ox += c.vx; c.oy += c.vy; c.k = clamp(c.k + c.vk, 0.2, maxScale); c.op += (g.op - c.op) * 0.2;
+      const room = Math.max(0, (step - size * c.k) / 2);
+      if (Math.abs(c.ox) > room) { c.ox = Math.sign(c.ox) * room; c.vx = 0; }
+      if (Math.abs(c.oy) > room) { c.oy = Math.sign(c.oy) * room; c.vy = 0; }
+      const rest = Math.abs(c.ox) < .01 && Math.abs(c.oy) < .01 && Math.abs(c.k - 1) < .001 && Math.abs(c.op - 1) < .005;
+      if (rest) { if (c.el.style.transform) { c.el.style.transform = ""; c.el.style.opacity = ""; } c.ox = c.oy = 0; c.k = 1; c.op = 1; c.vx = c.vy = c.vk = 0; }
+      else { c.el.style.transform = `translate(${c.ox.toFixed(2)}px,${c.oy.toFixed(2)}px) scale(${c.k.toFixed(3)})`; c.el.style.opacity = c.op < .995 ? c.op.toFixed(3) : ""; }
+      if (Math.abs(c.vx) + Math.abs(c.vy) + Math.abs(c.vk) > .005 || Math.abs(g.tx - c.ox) + Math.abs(g.ty - c.oy) + Math.abs(g.tk - c.k) + Math.abs(g.op - c.op) > .01) moving = true;
+    }
+    if (moving) schedule();
+  }
+  const schedule = () => { if (!frameId) frameId = requestAnimationFrame(frame); };
+  function focus(cell) {
+    if (cell === hovered) return; hovered = cell; if (!CFG.crosshair && !CFG.sameLevel) return;
+    svg.classList.toggle("fx", !!cell);
+    for (const c of cells) c.el.classList.toggle("on", !!cell && ((CFG.crosshair && (c.col === cell.col || c.row === cell.row)) || (CFG.sameLevel && c.lvl === cell.lvl)));
+  }
+  svg.addEventListener("pointerenter", () => { if (CFG.introAnimation && !introCleared) { cells.forEach((c) => c.el.classList.remove("an")); introCleared = true; } svg.classList.add("live"); });
+  svg.addEventListener("pointermove", (e) => { pointer = toLocal(e); focus(pointer && cellAt(pointer)); schedule(); });
+  svg.addEventListener("pointerleave", () => { pointer = null; focus(null); svg.classList.remove("live"); schedule(); });
+  if (CFG.ripple) svg.addEventListener("pointerdown", (e) => { const p = toLocal(e); if (!p) return; ripples.push({ x: p.x, y: p.y, t0: performance.now(), life: Math.hypot(vb.width, vb.height) / CFG.rippleSpeed + .4 }); schedule(); });
+}
+
+/* ---------- puntos de partida ---------- */
+const PRESETS = [
+  { name: "GitHub", sw: ["#0e4429", "#26a641", "#39d353"], cfg: { colors: { light: clone(LIGHT_DEFAULT) } } },
+  { name: "Lima", sw: ["#3a4d12", "#8fbf1a", "#c6f135"], cfg: {
+    colors: { background: "#0b0d0a", card_border: "#2a3020", empty: "#1a1d17", levels: ["#3a4d12", "#5d7d14", "#8fbf1a", "#c6f135"], title: "#f2f5ec", text: "#8a9180", accent: "#c6f135", today: "#c6f135", page_background: "#0b0d0a" },
+    font: { google: "JetBrains Mono", google_weights: [400, 700], title_google: "Michroma", title_weight: 400, title_size: 13, uppercase_title: true, letter_spacing: 0.3 },
+    cell: { shape: "square", highlight_today: true }, legend: { less: "-", more: "+" },
+    animation: { type: "pop", order: "diagonal", pulse_streak: true, animate_text: true } } },
+  { name: "Puntos", sw: ["#1e3a5f", "#3b82c4", "#8ec5ff"], cfg: {
+    colors: { empty: "#1a2230", levels: ["#1e3a5f", "#2c5f94", "#3b82c4", "#8ec5ff"], accent: "#8ec5ff" },
+    cell: { shape: "dot", dot_ratio: 0.7 }, title: { show: false }, subtitle: { show: false }, months: { show: false }, weekdays: { show: false }, legend: { show: false },
+    layout: { padding: 4 }, animation: { type: "sparkle" } } },
+  { name: "Hexágonos", sw: ["#c7d2fe", "#6366f1", "#312e81"], cfg: {
+    colors: { background: "#ffffff", card_border: "#d0d7de", empty: "#eef1f4", levels: ["#c7d2fe", "#818cf8", "#6366f1", "#4338ca", "#312e81"], title: "#111827", text: "#6b7280", accent: "#4f46e5", page_background: "#f6f7fb" },
+    cell: { shape: "hexagon" }, title: { align: "center", text: "**{total}** envíos · {user}" }, subtitle: { align: "center" }, legend: { align: "center" },
+    thresholds: { mode: "quantile" }, animation: { type: "rise", order: "center", stagger: 0.008 } } },
+  { name: "Ámbar", sw: ["#4a2c06", "#c27a12", "#ffbf47"], cfg: {
+    colors: { background: "#120d05", card_border: "#3a2a10", empty: "#1f170b", levels: ["#4a2c06", "#7d4d0c", "#c27a12", "#ffbf47"], title: "#ffd27a", text: "#a88a5c", accent: "#ffbf47", today: "#ffbf47", page_background: "#0b0803" },
+    font: { google: "IBM Plex Mono", google_weights: [400, 600], title_weight: 600 }, cell: { shape: "squircle" },
+    title: { text: "> leetcode --user {user}" }, animation: { type: "wave", order: "diagonal", stagger: 0.02 }, interaction: { effect: "repel", spotlight: true } } },
+  { name: "Vertical", sw: ["#5b2333", "#c2416b", "#ff8fb1"], cfg: {
+    layout: { orientation: "vertical", weeks: 20, cell_size: 13 },
+    colors: { empty: "#221519", levels: ["#5b2333", "#8e2f4f", "#c2416b", "#ff8fb1"], accent: "#ff8fb1" },
+    cell: { shape: "diamond" }, title: { align: "center" }, subtitle: { show: false }, legend: { align: "center" }, weekdays: { labels: [] }, interaction: { effect: "magnify" } } },
+];
+
+/* ---------- esquema de controles ---------- */
+const sel = (o) => o.map((v) => (Array.isArray(v) ? v : [v, v]));
+const SECTIONS = [
+  { title: "General", open: true, fields: [
+    { p: "user", label: "Usuario", type: "text" },
+    { p: "lang", label: "Idioma", type: "select", options: Object.entries(LANG_NAMES) },
+    { p: "file", label: "Archivo", type: "text", mono: true },
+    { p: "page", label: "Página interactiva", type: "page" },
+  ] },
+  { title: "Rejilla", open: true, fields: [
+    { p: "layout.weeks", label: "Semanas", type: "range", min: 4, max: 53, step: 1 },
+    { p: "layout.orientation", label: "Orientación", type: "select", options: sel([["horizontal", "Horizontal"], ["vertical", "Vertical"]]) },
+    { p: "layout.week_start", label: "Empieza en", type: "select", options: sel([["monday", "Lunes"], ["sunday", "Domingo"]]) },
+    { p: "layout.cell_size", label: "Tamaño celda", type: "range", min: 4, max: 24, step: 1 },
+    { p: "layout.cell_gap", label: "Separación", type: "range", min: 0, max: 10, step: 1 },
+    { p: "layout.padding", label: "Margen", type: "range", min: 0, max: 40, step: 1 },
+    { p: "layout.section_gap", label: "Entre bloques", type: "range", min: 0, max: 30, step: 1 },
+    { p: "layout.scale", label: "Escala", type: "range", min: 0.5, max: 3, step: 0.1 },
+  ] },
+  { title: "Celdas", open: true, fields: [
+    { p: "cell.shape", label: "Forma", type: "select", options: sel([["square", "Cuadrado"], ["rounded", "Redondeado"], ["squircle", "Squircle"], ["circle", "Círculo"], ["dot", "Punto"], ["diamond", "Rombo"], ["hexagon", "Hexágono"]]) },
+    { p: "cell.radius", label: "Redondeo", type: "range", min: 0, max: 12, step: 0.5, when: (s) => s.cell.shape === "rounded", sub: true },
+    { p: "cell.dot_ratio", label: "Tamaño punto", type: "range", min: 0.2, max: 1, step: 0.05, when: (s) => s.cell.shape === "dot", sub: true },
+    { p: "cell.border_width", label: "Borde", type: "range", min: 0, max: 3, step: 0.5 },
+    { p: "colors.cell_border", label: "Color borde", type: "color", when: (s) => +s.cell.border_width > 0, sub: true },
+    { p: "cell.hide_empty", label: "Días vacíos", type: "check", text: "Ocultar días sin actividad" },
+    { p: "cell.highlight_today", label: "Hoy", type: "check", text: "Marcar el día de hoy" },
+    { p: "colors.today", label: "Color de hoy", type: "color", when: (s) => s.cell.highlight_today, sub: true },
+    { p: "cell.today_width", label: "Grosor", type: "range", min: 0.5, max: 4, step: 0.5, when: (s) => s.cell.highlight_today, sub: true },
+  ] },
+  { title: "Colores", open: true, fields: [
+    { p: "colors.levels", label: "Niveles", type: "levels" },
+    { p: "colors.empty", label: "Sin actividad", type: "color" },
+    { p: "colors.background", label: "Fondo", type: "color", special: "transparent", specialText: "Transparente" },
+    { p: "colors.card_border", label: "Borde tarjeta", type: "color", special: "none", specialText: "Sin borde" },
+    { p: "colors.card_border_width", label: "Grosor borde", type: "range", min: 0.5, max: 4, step: 0.5, when: (s) => s.colors.card_border !== "none", sub: true },
+    { p: "colors.card_radius", label: "Radio tarjeta", type: "range", min: 0, max: 24, step: 1 },
+    { p: "colors.title", label: "Título", type: "color" },
+    { p: "colors.text", label: "Texto", type: "color" },
+    { p: "colors.accent", label: "Acento", type: "color", hint: "Para el texto entre **asteriscos**" },
+    { p: "colors.page_background", label: "Fondo página", type: "color", when: (s) => !!s.page, sub: true },
+  ] },
+  { title: "Tema claro", hint: "colores alternativos", fields: [
+    { p: "_light", label: "Activar", type: "lighttoggle" },
+    { p: "colors.light.levels", label: "Niveles", type: "levels", when: (s) => hasLight(s), sub: true },
+    { p: "colors.light.empty", label: "Sin actividad", type: "color", when: (s) => hasLight(s), sub: true },
+    { p: "colors.light.title", label: "Título", type: "color", when: (s) => hasLight(s), sub: true },
+    { p: "colors.light.text", label: "Texto", type: "color", when: (s) => hasLight(s), sub: true },
+    { p: "colors.light.accent", label: "Acento", type: "color", when: (s) => hasLight(s), sub: true },
+    { p: "colors.light.today", label: "Hoy", type: "color", when: (s) => hasLight(s), sub: true },
+  ] },
+  { title: "Tipografía", fields: [
+    { p: "font.google", label: "Google Font", type: "text", list: "fontlist", placeholder: "Fuente del sistema", hint: "Se incrusta en el SVG al generarlo" },
+    { p: "font.title_google", label: "Fuente título", type: "text", list: "fontlist", placeholder: "La misma" },
+    { p: "font.title_size", label: "Tamaño título", type: "range", min: 8, max: 32, step: 1 },
+    { p: "font.title_weight", label: "Peso título", type: "select", options: sel([[300, "300"], [400, "400"], [500, "500"], [600, "600"], [700, "700"], [800, "800"]]), num: true },
+    { p: "font.subtitle_size", label: "Subtítulo", type: "range", min: 7, max: 20, step: 1 },
+    { p: "font.label_size", label: "Etiquetas", type: "range", min: 6, max: 16, step: 1 },
+    { p: "font.letter_spacing", label: "Espaciado", type: "range", min: -1, max: 3, step: 0.1 },
+    { p: "font.uppercase_title", label: "Mayúsculas", type: "check", text: "Título en mayúsculas" },
+    { p: "font.google_weights", label: "Pesos", type: "numlist", mono: true, hint: "Pesos a incrustar, separados por comas" },
+    { p: "font.family", label: "Respaldo", type: "text", mono: true },
+  ] },
+  { title: "Textos", fields: [
+    { p: "title.show", label: "Título", type: "check", text: "Mostrar" },
+    { p: "title.text", label: "Texto", type: "text", when: (s) => s.title.show, sub: true },
+    { p: "title.align", label: "Alineación", type: "align", when: (s) => s.title.show, sub: true },
+    { p: "subtitle.show", label: "Subtítulo", type: "check", text: "Mostrar" },
+    { p: "subtitle.text", label: "Texto", type: "text", locale: "subtitle", when: (s) => s.subtitle.show, sub: true },
+    { p: "subtitle.align", label: "Alineación", type: "align", when: (s) => s.subtitle.show, sub: true },
+    { p: "months.show", label: "Meses", type: "check", text: "Mostrar" },
+    { p: "months.names", label: "Nombres", type: "list", locale: "months", when: (s) => s.months.show, sub: true, mono: true },
+    { p: "weekdays.show", label: "Días", type: "check", text: "Mostrar" },
+    { p: "weekdays.labels", label: "Etiquetas", type: "list", locale: "weekdays", when: (s) => s.weekdays.show, sub: true, mono: true, hint: "De lunes a domingo; deja huecos para omitir" },
+    { p: "legend.show", label: "Leyenda", type: "check", text: "Mostrar" },
+    { p: "legend.less", label: "Menos", type: "text", locale: "less", when: (s) => s.legend.show, sub: true },
+    { p: "legend.more", label: "Más", type: "text", locale: "more", when: (s) => s.legend.show, sub: true },
+    { p: "legend.align", label: "Alineación", type: "align", when: (s) => s.legend.show, sub: true },
+    { p: "footer.show", label: "Pie", type: "check", text: "Mostrar" },
+    { p: "footer.text", label: "Texto", type: "text", locale: "footer", when: (s) => s.footer.show, sub: true },
+    { p: "footer.align", label: "Alineación", type: "align", when: (s) => s.footer.show, sub: true },
+    { p: "tooltip.show", label: "Tooltip", type: "check", text: "En el SVG estático", hint: "Nunca aparece en la página interactiva" },
+    { p: "tooltip.text", label: "Texto", type: "text", locale: "tooltip", when: (s) => s.tooltip.show, sub: true },
+    { p: "_vars", label: "", type: "note", text: "Variables: {user} {streak} {max_streak} {active_days} {total} {best_day} {updated} {weeks}" },
+  ] },
+  { title: "Umbrales", fields: [
+    { p: "thresholds.mode", label: "Modo", type: "select", options: sel([["fixed", "Fijos"], ["quantile", "Según tu actividad"]]) },
+    { p: "thresholds.values", label: "Valores", type: "numlist", mono: true, when: (s) => s.thresholds.mode === "fixed", sub: true, hint: "Envíos mínimos para cada nivel" },
+  ] },
+  { title: "Animación", hint: "también en el README", fields: [
+    { p: "animation.type", label: "Tipo", type: "select", options: sel([["none", "Ninguna"], ["fade", "Fundido"], ["pop", "Pop"], ["rise", "Subir"], ["drop", "Caer"], ["spin", "Giro"], ["wave", "Ola (bucle)"], ["sparkle", "Destellos (bucle)"]]) },
+    { p: "animation.order", label: "Orden", type: "select", options: sel([["column", "Por columnas"], ["row", "Por filas"], ["diagonal", "Diagonal"], ["random", "Aleatorio"], ["level", "Por nivel"], ["center", "Desde el centro"]]), when: (s) => !["none", "sparkle"].includes(s.animation.type), sub: true },
+    { p: "animation.reverse", label: "Invertir", type: "check", text: "Orden inverso", when: (s) => !["none", "sparkle"].includes(s.animation.type), sub: true },
+    { p: "animation.duration", label: "Duración", type: "range", min: 0.1, max: 2, step: 0.05, unit: "s", when: (s) => !["none", "sparkle"].includes(s.animation.type), sub: true },
+    { p: "animation.stagger", label: "Retardo", type: "range", min: 0, max: 0.05, step: 0.001, unit: "s", when: (s) => !["none", "sparkle"].includes(s.animation.type), sub: true },
+    { p: "animation.easing", label: "Curva", type: "select", options: sel([["cubic-bezier(.2,.8,.2,1.2)", "Con rebote"], ["ease-out", "Suave"], ["ease-in-out", "Simétrica"], ["linear", "Lineal"], ["cubic-bezier(.34,1.56,.64,1)", "Elástica"]]), when: (s) => !!INTRO[s.animation.type], sub: true },
+    { p: "animation.loop", label: "Repetir", type: "check", text: "Repetir la entrada", when: (s) => !!INTRO[s.animation.type], sub: true },
+    { p: "animation.loop_pause", label: "Pausa", type: "range", min: 0, max: 10, step: 0.5, unit: "s", when: (s) => !!INTRO[s.animation.type] && s.animation.loop, sub: true },
+    { p: "animation.empty_cells", label: "Días vacíos", type: "check", text: "Animarlos también", when: (s) => s.animation.type !== "none" && s.animation.type !== "sparkle", sub: true },
+    { p: "animation.pulse_streak", label: "Racha", type: "check", text: "Las celdas de la racha laten" },
+    { p: "animation.pulse_today", label: "Hoy", type: "check", text: "El día de hoy late" },
+    { p: "animation.pulse_speed", label: "Latido", type: "range", min: 0.4, max: 4, step: 0.1, unit: "s", when: (s) => s.animation.pulse_streak || s.animation.pulse_today, sub: true },
+    { p: "animation.animate_text", label: "Textos", type: "check", text: "Entrada con fundido" },
+  ] },
+  { title: "Interacción", hint: "solo en la página", fields: [
+    { p: "interaction.effect", label: "Efecto", type: "select", options: sel([["none", "Ninguno"], ["gravity", "Gravedad"], ["repel", "Repulsión"], ["magnify", "Lupa"]]) },
+    { p: "interaction.radius", label: "Alcance", type: "range", min: 15, max: 160, step: 5, when: (s) => s.interaction.effect !== "none" || s.interaction.spotlight, sub: true },
+    { p: "interaction.strength", label: "Intensidad", type: "range", min: 0.1, max: 1, step: 0.05, when: (s) => s.interaction.effect !== "none", sub: true },
+    { p: "interaction.shrink", label: "Encoger", type: "range", min: 0, max: 0.6, step: 0.05, when: (s) => ["gravity", "repel"].includes(s.interaction.effect), sub: true },
+    { p: "interaction.stiffness", label: "Rigidez", type: "range", min: 0.04, max: 0.5, step: 0.01, when: (s) => s.interaction.effect !== "none", sub: true },
+    { p: "interaction.damping", label: "Amortiguación", type: "range", min: 0.4, max: 0.95, step: 0.01, when: (s) => s.interaction.effect !== "none", sub: true },
+    { p: "interaction.hover", label: "Hover", type: "select", options: sel([["none", "Nada"], ["dim", "Atenuar"], ["outline", "Contorno"], ["glow", "Brillo"], ["grow", "Crecer"]]) },
+    { p: "interaction.spotlight", label: "Foco", type: "check", text: "Atenuar lejos del puntero" },
+    { p: "interaction.spotlight_dim", label: "Atenuación", type: "range", min: 0, max: 0.9, step: 0.05, when: (s) => s.interaction.spotlight, sub: true },
+    { p: "interaction.crosshair", label: "Cruz", type: "check", text: "Resaltar semana y día" },
+    { p: "interaction.same_level", label: "Mismo nivel", type: "check", text: "Resaltar celdas del mismo nivel" },
+    { p: "interaction.ripple", label: "Onda", type: "check", text: "Onda al hacer clic" },
+    { p: "interaction.ripple_speed", label: "Velocidad", type: "range", min: 80, max: 800, step: 20, when: (s) => s.interaction.ripple, sub: true },
+    { p: "interaction.ripple_scale", label: "Amplitud", type: "range", min: 0.1, max: 1, step: 0.05, when: (s) => s.interaction.ripple, sub: true },
+    { p: "interaction.enabled", label: "En el .svg", type: "check", text: "Incluir también en el archivo SVG", hint: "Útil si incrustas el SVG en tu web" },
+  ] },
+];
+const hasLight = (s) => s.colors.light && Object.keys(s.colors.light).length > 0;
+const FONTS = ["Inter", "JetBrains Mono", "IBM Plex Mono", "IBM Plex Sans", "Space Mono", "Michroma", "Orbitron", "Rajdhani", "Sora", "Manrope", "DM Mono", "Fira Code", "Roboto Mono", "Archivo", "Outfit", "Syne", "Unbounded", "Chakra Petch", "Silkscreen", "Press Start 2P"];
+
+/* ---------- estado ---------- */
+let state = clone(DEFAULTS);
+let seed = 7, counts = sample(seed), mode = "dark", exportMode = "diff";
+try { const saved = JSON.parse(localStorage.getItem("hm-studio") || "null"); if (saved) state = merge(DEFAULTS, saved); } catch (e) {}
+
+/* ---------- construcción de controles ---------- */
+const controls = document.getElementById("controls");
+const dl = document.createElement("datalist"); dl.id = "fontlist"; dl.innerHTML = FONTS.map((f) => `<option value="${f}"></option>`).join(""); document.body.appendChild(dl);
+const rows = [];
+let uid = 0;
+
+function hexOf(v) { const m = /^#([0-9a-f]{6})/i.exec(v || ""); if (m) return "#" + m[1]; const s = /^#([0-9a-f]{3})$/i.exec(v || ""); return s ? "#" + s[1].split("").map((c) => c + c).join("") : "#000000"; }
+
+function field(f) {
+  const id = "f" + (++uid); const row = document.createElement("div"); row.className = "f" + (f.sub ? " sub" : "");
+  const lbl = f.label ? `<label for="${id}">${f.label}</label>` : "<span></span>";
+  let html = "";
+  switch (f.type) {
+    case "text": html = `<input type="text" id="${id}" ${f.list ? `list="${f.list}"` : ""} class="${f.mono ? "mono" : ""}" spellcheck="false" autocomplete="off">`; break;
+    case "list": case "numlist": html = `<input type="text" id="${id}" class="mono" spellcheck="false" autocomplete="off">`; break;
+    case "select": html = `<select id="${id}">${f.options.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select>`; break;
+    case "align": html = `<select id="${id}"><option value="left">Izquierda</option><option value="center">Centro</option><option value="right">Derecha</option></select>`; break;
+    case "range": html = `<div class="range"><input type="range" id="${id}" min="${f.min}" max="${f.max}" step="${f.step}"><output for="${id}"></output></div>`; break;
+    case "check": case "page": case "lighttoggle": html = `<label class="chk"><input type="checkbox" id="${id}"> ${f.type === "page" ? "Generar index.html" : f.type === "lighttoggle" ? "Usar otros colores si GitHub está en claro" : f.text}</label>`; break;
+    case "color": html = `<div class="color"><input type="color" id="${id}-p" aria-label="${f.label}"><input type="text" id="${id}" class="mono" spellcheck="false">${f.special ? `<label class="chk" style="white-space:nowrap"><input type="checkbox" id="${id}-s"> ${f.specialText}</label>` : ""}</div>`; break;
+    case "levels": html = `<div class="levels" id="${id}"></div>`; break;
+    case "note": html = `<span style="font-size:11.5px;color:var(--muted);grid-column:1/-1">${esc(f.text)}</span>`; break;
+  }
+  row.innerHTML = (f.type === "note" ? "" : lbl) + html + (f.hint ? `<span class="hint">${esc(f.hint)}</span>` : "");
+  if (f.type === "note") row.style.gridTemplateColumns = "1fr";
+  const el = row.querySelector("#" + id);
+  const r = { f, row, el, sync: () => {} };
+
+  if (f.type === "text" || f.type === "list" || f.type === "numlist") {
+    r.sync = () => {
+      const v = get(state, f.p);
+      if (document.activeElement !== el) el.value = f.type === "text" ? (v ?? "") : (v || []).join(f.type === "list" ? ", " : ", ");
+      if (f.locale) { const t = LOCALES[state.lang][f.locale]; el.placeholder = Array.isArray(t) ? t.join(", ") : t; }
+      else if (f.placeholder) el.placeholder = f.placeholder;
+    };
+    el.addEventListener("input", () => {
+      let v = el.value;
+      if (f.type === "list") v = v.trim() === "" ? [] : v.split(",").map((s) => s.trim());
+      if (f.type === "numlist") v = v.split(",").map((s) => parseFloat(s)).filter((n) => !isNaN(n));
+      set(state, f.p, v); if (f.p.startsWith("font.")) loadFonts(); update();
+    });
+  } else if (f.type === "select" || f.type === "align") {
+    r.sync = () => { el.value = String(get(state, f.p)); };
+    el.addEventListener("change", () => { set(state, f.p, f.num ? +el.value : el.value); update(true); });
+  } else if (f.type === "range") {
+    const out = row.querySelector("output");
+    const fmt = (v) => (f.step < 0.01 ? (+v).toFixed(3) : f.step < 1 ? (+v).toFixed(2).replace(/0$/, "") : v) + (f.unit || "");
+    r.sync = () => { el.value = get(state, f.p); out.textContent = fmt(el.value); };
+    el.addEventListener("input", () => { set(state, f.p, +el.value); out.textContent = fmt(el.value); update(); });
+  } else if (f.type === "check") {
+    r.sync = () => { el.checked = !!get(state, f.p); };
+    el.addEventListener("change", () => { set(state, f.p, el.checked); update(true); });
+  } else if (f.type === "page") {
+    r.sync = () => { el.checked = !!state.page; };
+    el.addEventListener("change", () => { state.page = el.checked ? "index.html" : ""; update(true); });
+  } else if (f.type === "lighttoggle") {
+    r.sync = () => { el.checked = hasLight(state); };
+    el.addEventListener("change", () => { state.colors.light = el.checked ? clone(LIGHT_DEFAULT) : {}; if (el.checked) setMode("light"); update(true); });
+  } else if (f.type === "color") {
+    const pick = row.querySelector(`#${id}-p`), sp = row.querySelector(`#${id}-s`);
+    r.sync = () => {
+      const v = get(state, f.p) ?? ""; const special = f.special && v === f.special;
+      if (document.activeElement !== el) el.value = special ? "" : v;
+      el.disabled = pick.disabled = !!special; if (sp) sp.checked = !!special;
+      if (!special) pick.value = hexOf(v);
+      el.placeholder = special ? f.specialText : "";
+    };
+    pick.addEventListener("input", () => { const old = String(get(state, f.p)); const alpha = /^#[0-9a-f]{8}$/i.test(old) ? old.slice(7) : ""; set(state, f.p, pick.value + alpha); el.value = pick.value + alpha; update(); });
+    el.addEventListener("input", () => { set(state, f.p, el.value.trim()); update(); });
+    if (sp) sp.addEventListener("change", () => { set(state, f.p, sp.checked ? f.special : (f.p.includes("background") ? "#0d1117" : "#30363d")); update(true); });
+  } else if (f.type === "levels") {
+    r.sync = () => {
+      const arr = get(state, f.p) || [];
+      el.innerHTML = arr.map((c, i) => `<span class="lv"><input type="color" value="${hexOf(c)}" data-i="${i}" aria-label="Nivel ${i + 1}">${arr.length > 1 ? `<button type="button" data-rm="${i}" aria-label="Quitar nivel ${i + 1}">×</button>` : ""}</span>`).join("")
+        + (arr.length < 8 ? `<button type="button" class="add" aria-label="Añadir nivel">+</button>` : "");
+    };
+    el.addEventListener("input", (e) => { const i = e.target.dataset.i; if (i == null) return; const arr = get(state, f.p); arr[+i] = e.target.value; update(); });
+    el.addEventListener("click", (e) => {
+      const arr = get(state, f.p);
+      if (e.target.dataset.rm != null) { arr.splice(+e.target.dataset.rm, 1); update(true); }
+      else if (e.target.classList.contains("add")) { arr.push(arr.at(-1) || "#39d353"); if (state.thresholds.values.length < arr.length) state.thresholds.values.push((state.thresholds.values.at(-1) || 0) + 3); update(true); }
+    });
+  }
+  rows.push(r);
+  return row;
+}
+
+SECTIONS.forEach((sec) => {
+  const d = document.createElement("details"); d.className = "sec"; if (sec.open) d.open = true;
+  d.innerHTML = `<summary>${sec.title}${sec.hint ? ` <small>${sec.hint}</small>` : ""}</summary><div class="fields"></div>`;
+  const box = d.querySelector(".fields"); sec.fields.forEach((f) => box.appendChild(field(f)));
+  controls.appendChild(d);
+});
+
+/* ---------- presets ---------- */
+const presetBox = document.getElementById("presets");
+PRESETS.forEach((p) => {
+  const b = document.createElement("button"); b.type = "button"; b.className = "chip";
+  b.innerHTML = `<i>${p.sw.map((c) => `<b style="background:${c}"></b>`).join("")}</i>${p.name}`;
+  b.addEventListener("click", () => { state = merge(merge(DEFAULTS, { user: state.user, lang: state.lang }), p.cfg); loadFonts(); update(true); });
+  presetBox.appendChild(b);
+});
+
+/* ---------- fuentes de Google para la vista previa ---------- */
+const loadedFonts = new Set();
+function loadFonts() {
+  for (const fam of [state.font.google, state.font.title_google]) {
+    const f = (fam || "").trim(); if (!f || loadedFonts.has(f)) continue; loadedFonts.add(f);
+    const l = document.createElement("link"); l.rel = "stylesheet";
+    l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@300;400;500;600;700;800&display=swap`;
+    l.onerror = () => { const l2 = document.createElement("link"); l2.rel = "stylesheet"; l2.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, "+")}&display=swap`; document.head.appendChild(l2); };
+    l.onload = () => draw();
+    document.head.appendChild(l);
+  }
+}
+
+/* ---------- vista previa ---------- */
+const stage = document.getElementById("stage");
+const root = stage.attachShadow({ mode: "open" });
+function draw() {
+  const eff = resolve(state);
+  try {
+    const { svg, settings } = render(eff, counts, mode, true);
+    root.innerHTML = `<style>:host{display:block;max-width:100%}svg{display:block;max-width:100%;height:auto}</style>` + svg;
+    attach(root.querySelector("svg"), settings);
+  } catch (e) { root.innerHTML = `<p style="font:13px system-ui;color:#c55">No se pudo dibujar: ${esc(e.message)}</p>`; }
+}
+
+/* ---------- exportación TOML ---------- */
+function tv(v) {
+  if (typeof v === "string") return JSON.stringify(v);
+  if (typeof v === "boolean") return String(v);
+  if (typeof v === "number") return Number.isInteger(v) ? String(v) : String(+v.toFixed(4));
+  if (Array.isArray(v)) return "[" + v.map(tv).join(", ") + "]";
+  return '""';
+}
+const SECTION_ORDER = ["layout", "cell", "colors", "thresholds", "font", "title", "subtitle", "months", "weekdays", "legend", "footer", "tooltip", "animation", "interaction"];
+function toToml(full) {
+  const out = ["# Copia este contenido en config.toml."];
+  const top = ["user", "lang", "file", "page"];
+  out.push("");
+  for (const k of top) if (full || k === "user" || k === "lang" || !eq(state[k], DEFAULTS[k])) out.push(`${k} = ${tv(state[k])}`);
+  for (const s of SECTION_ORDER) {
+    const lines = [];
+    for (const [k, def] of Object.entries(DEFAULTS[s])) {
+      if (k === "light") continue;
+      const v = state[s][k];
+      if (!full && eq(v, def)) continue;
+      if (full && (v === "" || (Array.isArray(v) && !v.length))) continue; // vacío = texto del idioma
+      lines.push(`${k} = ${tv(v)}`);
+    }
+    if (lines.length) out.push("", `[${s}]`, ...lines);
+    if (s === "colors" && hasLight(state)) {
+      out.push("", "[colors.light]", ...Object.entries(state.colors.light).map(([k, v]) => `${k} = ${tv(v)}`));
+    }
+  }
+  return out.join("\n") + "\n";
+}
+function highlight(t) {
+  return t.split("\n").map((l) => {
+    if (l.startsWith("#")) return `<span class="c">${esc(l)}</span>`;
+    if (l.startsWith("[")) return `<span class="h">${esc(l)}</span>`;
+    const m = /^(\w+)( = )(.*)$/.exec(l); return m ? `<span class="k">${m[1]}</span>${m[2]}${esc(m[3])}` : esc(l);
+  }).join("\n");
+}
+const tomlEl = document.getElementById("toml");
+
+/* ---------- ciclo de actualización ---------- */
+let pending = 0, rebuild = false;
+function update(structural) {
+  rebuild = rebuild || !!structural;
+  if (pending) return;
+  pending = requestAnimationFrame(() => {
+    pending = 0;
+    for (const r of rows) { r.row.hidden = !!(r.f.when && !r.f.when(state)); if (rebuild || r.f.type !== "levels") r.sync(); }
+    rebuild = false;
+    draw();
+    tomlEl.innerHTML = highlight(toToml(exportMode === "full"));
+    try { localStorage.setItem("hm-studio", JSON.stringify(state)); } catch (e) {}
+  });
+}
+
+/* ---------- barra de herramientas ---------- */
+function setMode(m) { mode = m; stage.className = "stage " + m; document.getElementById("mode-dark").setAttribute("aria-pressed", m === "dark"); document.getElementById("mode-light").setAttribute("aria-pressed", m === "light"); draw(); }
+document.getElementById("mode-dark").onclick = () => setMode("dark");
+document.getElementById("mode-light").onclick = () => setMode("light");
+document.getElementById("btn-replay").onclick = draw;
+document.getElementById("btn-data").onclick = () => { seed = (seed * 31 + 17) % 100000; counts = sample(seed); draw(); };
+document.getElementById("btn-reset").onclick = () => { state = merge(DEFAULTS, { user: state.user }); update(true); };
+function setExport(m) { exportMode = m; document.getElementById("ex-diff").setAttribute("aria-pressed", m === "diff"); document.getElementById("ex-full").setAttribute("aria-pressed", m === "full"); update(); }
+document.getElementById("ex-diff").onclick = () => setExport("diff");
+document.getElementById("ex-full").onclick = () => setExport("full");
+document.getElementById("btn-copy").onclick = () => {
+  const text = toToml(exportMode === "full"); const ok = document.getElementById("copied");
+  const done = () => { ok.hidden = false; setTimeout(() => (ok.hidden = true), 1600); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents(tomlEl); const s = getSelection(); s.removeAllRanges(); s.addRange(r); ok.textContent = "Seleccionado: pulsa Ctrl+C"; done(); };
+  try { navigator.clipboard.writeText(text).then(() => { ok.textContent = "Copiado"; done(); }, fallback); } catch (e) { fallback(); }
+};
+
+loadFonts();
+update(true);
+})();
+</script>
+</body>
+</html>
