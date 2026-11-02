@@ -5,24 +5,58 @@ on:
     - cron: "17 23 * * *"
   workflow_dispatch:
   push:
-    paths: ["config.toml", "generate.py", "heatmap/**", "fonts/**", ".github/workflows/heatmap.yml"]
+    paths: ["config.toml", "generate.py", "heatmap/**", "fonts/**", "studio.html", ".github/workflows/heatmap.yml"]
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: heatmap
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: python generate.py
+
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A -- '*.svg' '*.html'
-          git diff --cached --quiet || git commit -m "heatmap: actualizar"
-          git push
+          git diff --cached --quiet && exit 0
+          git commit -m "heatmap: actualizar"
+          # Si alguien ha subido algo mientras tanto, se integra y se reintenta.
+          # Ante conflicto en los archivos generados gana la versión recién generada.
+          for i in 1 2 3; do
+            git pull --rebase -X theirs origin "${{ github.ref_name }}" && git push && exit 0
+            sleep 5
+          done
+          exit 1
+
+      - name: Preparar sitio
+        run: |
+          mkdir -p _site
+          cp *.svg *.html _site/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
